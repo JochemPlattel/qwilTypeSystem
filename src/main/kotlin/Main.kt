@@ -2,6 +2,9 @@ package org.example
 
 fun main() {
     println("Hello World!")
+    val program = Expr.Call(Expr.Var("myfunction"), listOf(Expr.Var("myvariable")))
+    val cfg = exprToCFGFragment(program)
+    println(cfg)
 }
 
 sealed interface Expr {
@@ -20,10 +23,11 @@ sealed interface Type {
 sealed interface CFGNode {
     data class Assign(val name: String): CFGNode
     data class Assume(val expr: Expr): CFGNode
+    data class Var(val vari: Expr.Var): CFGNode
 }
 
 data class CFGEdge(val source: CFGNode, val target: CFGNode)
-class CFGFragment(
+data class CFGFragment(
     val root: CFGNode,
     val edges: Set<CFGEdge>,
     val falseNodes: Set<CFGNode>,
@@ -34,13 +38,24 @@ fun exprToCFGFragment(expr: Expr): CFGFragment {
     return when (expr) {
         is Expr.Call -> callToCFGFragment(expr)
         is Expr.Is -> isExprToCFGFragment(expr)
-        is Expr.Var ->
+        is Expr.Var -> varToCFG(expr)
         else -> TODO()
     }
 }
 
+fun varToCFG(vari: Expr.Var): CFGFragment {
+    val node = CFGNode.Var(vari)
+    return cfgNodeToFragment(node)
+}
+
 fun callToCFGFragment(call: Expr.Call): CFGFragment {
-    TODO()
+    val calleeCfg = exprToCFGFragment(call.callee)
+    val argCfgs = call.arguments.map { exprToCFGFragment(it) }
+    var callCfg = calleeCfg
+    for (argCfg in argCfgs) {
+        callCfg = cfgMerge(callCfg, argCfg)
+    }
+    return callCfg
 }
 
 fun isExprToCFGFragment(isExpr: Expr.Is): CFGFragment {
@@ -49,10 +64,11 @@ fun isExprToCFGFragment(isExpr: Expr.Is): CFGFragment {
     val testCFG = exprToCFGFragment(isExpr.test)
     val trueAssume = CFGNode.Assume(isExpr)
     val falseAssume = CFGNode.Assume(Expr.Not(isExpr))
-    builder.markNode(trueAssume, true)
-    builder.markNode(falseAssume, false)
+    builder.addExitNode(trueAssume, true)
+    builder.addExitNode(falseAssume, false)
 
-    val fragment = mergeCFGFragments(testCFG)
+    TODO()
+    //val fragment = mergeCFGFragments(testCFG)
 }
 
 class CFGBuilder {
@@ -79,12 +95,13 @@ class CFGBuilder {
 
 fun falseMergeCFGFragment(fragment1: CFGFragment, fragment2: CFGFragment): CFGFragment {
     val newEdges = fragment1.edges + fragment2.edges + fragment1.falseNodes.map { CFGEdge(it, fragment2.root) }
-    return CFGFragment(fragment1.root, newEdges, fragment2.falseNodes, fragment2.trueNodes)
+    println(fragment1.falseNodes.map { CFGEdge(it, fragment2.root) })
+    return CFGFragment(fragment1.root, newEdges, fragment2.falseNodes, fragment1.trueNodes)
 }
 
 fun trueMergeCFGFragment(fragment1: CFGFragment, fragment2: CFGFragment): CFGFragment {
     val newEdges = fragment1.edges + fragment2.edges + fragment1.trueNodes.map { CFGEdge(it, fragment2.root) }
-    return CFGFragment(fragment1.root, newEdges, fragment2.falseNodes, fragment2.trueNodes)
+    return CFGFragment(fragment1.root, newEdges, fragment1.falseNodes, fragment2.trueNodes)
 }
 
 fun mergeCFGFragments(
@@ -93,7 +110,8 @@ fun mergeCFGFragments(
     falseFragment: CFGFragment
 ): CFGFragment {
     val withTrue = trueMergeCFGFragment(fragment, trueFragment)
-    return falseMergeCFGFragment(withTrue, falseFragment)
+    val withFalse = falseMergeCFGFragment(withTrue, falseFragment)
+    return withFalse
 }
 
 fun cfgNodeToFalseFragment(node: CFGNode): CFGFragment {
@@ -107,4 +125,9 @@ fun cfgNodeToTrueFragment(node: CFGNode): CFGFragment {
 fun cfgNodeToFragment(node: CFGNode): CFGFragment {
     val exit = setOf(node)
     return CFGFragment(node, emptySet(), exit, exit)
+}
+
+fun cfgMerge(fragment1: CFGFragment, fragment2: CFGFragment): CFGFragment {
+    val result = mergeCFGFragments(fragment1, fragment2, fragment2)
+    return result
 }
