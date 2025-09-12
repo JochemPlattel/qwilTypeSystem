@@ -2,24 +2,26 @@ package org.example
 
 fun main() {
     println("Hello World!")
-    val program1 = Expr.Call(Expr.Var("f"), listOf(Expr.Var("x"), Expr.Var("y")))
-    val program2 = Expr.Is(Expr.Var("x"), Type.Base("T"))
-    println(exprToSource(program2))
-    val cfg = exprToCFGFragment(program2)
+    val condition = Expr.Is(Expr.Var("x"), Type.Base("T"))
+    val trueBranch = Stmt.ExprStmt(Expr.Var("y"))
+    val falseBranch = Stmt.ExprStmt(Expr.Var("z"))
+    val program = Stmt.If(condition, trueBranch, falseBranch)
+    val cfg = stmtToCFG(program)
     println(prettyPrintCFG(cfg))
 }
 
 sealed interface Expr {
-    data class Call(val callee: Expr, val arguments: List<Expr>): Expr
-    data class Is(val test: Expr, val type: Type): Expr
-    data class Var(val name: String): Expr
-    data class And(val left: Expr, val right: Expr): Expr
-    data class Not(val expr: Expr): Expr
+    class Call(val callee: Expr, val arguments: List<Expr>): Expr
+    class Is(val test: Expr, val type: Type): Expr
+    class Var(val name: String): Expr
+    class And(val left: Expr, val right: Expr): Expr
+    class Not(val expr: Expr): Expr
 }
 
 sealed interface Stmt {
-    class If(val condition: Expr, val trueBranch: Block, val falseBranch: Block): Stmt
+    class If(val condition: Expr, val trueBranch: Stmt, val falseBranch: Stmt): Stmt
     class Block(val stmts: List<Stmt>): Stmt
+    class ExprStmt(val expr: Expr): Stmt
 }
 
 sealed interface Type {
@@ -28,9 +30,9 @@ sealed interface Type {
 
 
 sealed interface CFGNode {
-    data class Assign(val name: String): CFGNode
-    data class Assume(val expr: Expr): CFGNode
-    data class Var(val vari: Expr.Var): CFGNode
+    class Assign(val name: String): CFGNode
+    class Assume(val expr: Expr): CFGNode
+    class Var(val vari: Expr.Var): CFGNode
 }
 
 data class CFGEdge(val source: CFGNode, val target: CFGNode)
@@ -44,14 +46,25 @@ data class CFGFragment(
 fun stmtToCFG(stmt: Stmt): CFGFragment {
     return when (stmt) {
         is Stmt.Block -> blockToCFG(stmt)
+        is Stmt.ExprStmt -> exprToCFGFragment(stmt.expr)
+        is Stmt.If -> ifToCFG(stmt)
         else -> TODO()
     }
 }
+
+/*
+fun exprStmtToCFG(exprStmt: Stmt.ExprStmt): CFGFragment {
+    return exprToCFGFragment(exprStmt.expr)
+}
+
+ */
 
 fun ifToCFG(ifStmt: Stmt.If): CFGFragment {
     val conditionCfg = exprToCFGFragment(ifStmt.condition)
     val trueCfg = stmtToCFG(ifStmt.trueBranch)
     val falseCfg = stmtToCFG(ifStmt.falseBranch)
+    println(prettyPrintCFG(trueCfg))
+    println(prettyPrintCFG(falseCfg))
     return mergeCFGFragments(conditionCfg, trueCfg, falseCfg)
 }
 
