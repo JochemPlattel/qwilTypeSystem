@@ -2,9 +2,11 @@ package org.example
 
 fun main() {
     println("Hello World!")
-    val program = Expr.Call(Expr.Var("myfunction"), listOf(Expr.Var("myvariable")))
-    val cfg = exprToCFGFragment(program)
-    println(cfg)
+    val program1 = Expr.Call(Expr.Var("f"), listOf(Expr.Var("x"), Expr.Var("y")))
+    val program2 = Expr.Is(Expr.Var("x"), Type.Base("T"))
+    println(exprToSource(program2))
+    val cfg = exprToCFGFragment(program2)
+    println(prettyPrintCFG(cfg))
 }
 
 sealed interface Expr {
@@ -13,6 +15,11 @@ sealed interface Expr {
     data class Var(val name: String): Expr
     data class And(val left: Expr, val right: Expr): Expr
     data class Not(val expr: Expr): Expr
+}
+
+sealed interface Stmt {
+    class If(val condition: Expr, val trueBranch: Block, val falseBranch: Block): Stmt
+    class Block(val stmts: List<Stmt>): Stmt
 }
 
 sealed interface Type {
@@ -33,6 +40,31 @@ data class CFGFragment(
     val falseNodes: Set<CFGNode>,
     val trueNodes: Set<CFGNode>
 )
+
+fun stmtToCFG(stmt: Stmt): CFGFragment {
+    return when (stmt) {
+        is Stmt.Block -> blockToCFG(stmt)
+        else -> TODO()
+    }
+}
+
+fun ifToCFG(ifStmt: Stmt.If): CFGFragment {
+    val conditionCfg = exprToCFGFragment(ifStmt.condition)
+    val trueCfg = stmtToCFG(ifStmt.trueBranch)
+    val falseCfg = stmtToCFG(ifStmt.falseBranch)
+    return mergeCFGFragments(conditionCfg, trueCfg, falseCfg)
+}
+
+fun blockToCFG(block: Stmt.Block): CFGFragment {
+    check(block.stmts.isNotEmpty())
+    var blockCfg = stmtToCFG(block.stmts[0])
+    for (i in 1 until block.stmts.size) {
+        val stmt = block.stmts[i]
+        val stmtCfg = stmtToCFG(stmt)
+        blockCfg = cfgMerge(blockCfg, stmtCfg)
+    }
+    return blockCfg
+}
 
 fun exprToCFGFragment(expr: Expr): CFGFragment {
     return when (expr) {
@@ -67,8 +99,10 @@ fun isExprToCFGFragment(isExpr: Expr.Is): CFGFragment {
     builder.addExitNode(trueAssume, true)
     builder.addExitNode(falseAssume, false)
 
-    TODO()
-    //val fragment = mergeCFGFragments(testCFG)
+    val trueCfg = cfgNodeToFragment(trueAssume, true)
+    val falseCfg = cfgNodeToFragment(falseAssume, false)
+
+    return mergeCFGFragments(testCFG, trueCfg, falseCfg)
 }
 
 class CFGBuilder {
@@ -122,12 +156,58 @@ fun cfgNodeToTrueFragment(node: CFGNode): CFGFragment {
     return CFGFragment(node, emptySet(), emptySet(), setOf(node))
 }
 
-fun cfgNodeToFragment(node: CFGNode): CFGFragment {
+fun cfgNodeToFragment(node: CFGNode, mark: Boolean? = null): CFGFragment {
     val exit = setOf(node)
-    return CFGFragment(node, emptySet(), exit, exit)
+    val empty = emptySet<CFGEdge>()
+    if (mark == null) {
+        return CFGFragment(node, empty, exit, exit)
+    }
+    if (mark) {
+        return CFGFragment(node, empty, emptySet(), exit)
+    }
+    return CFGFragment(node, empty, exit, emptySet())
 }
 
 fun cfgMerge(fragment1: CFGFragment, fragment2: CFGFragment): CFGFragment {
     val result = mergeCFGFragments(fragment1, fragment2, fragment2)
     return result
+}
+
+fun prettyPrintCFGNode(node: CFGNode): String {
+    return when (node) {
+        is CFGNode.Var -> "var(${node.vari.name})"
+        is CFGNode.Assume -> "assume(${exprToSource(node.expr)})"
+        is CFGNode.Assign -> "assign(${node.name})"
+    }
+}
+
+fun prettyPrintCFG(cfg: CFGFragment): String {
+    val builder = StringBuilder()
+    for (edge in cfg.edges) {
+        builder.append(prettyPrintCFGNode(edge.source))
+        builder.append(" -> ")
+        builder.append(prettyPrintCFGNode(edge.target))
+        builder.appendLine()
+    }
+    for (falseNode in cfg.falseNodes) {
+        builder.append(prettyPrintCFGNode(falseNode))
+        builder.append(" -> false")
+        builder.appendLine()
+    }
+    for (trueNode in cfg.falseNodes) {
+        builder.append(prettyPrintCFGNode(trueNode))
+        builder.append(" -> true")
+        builder.appendLine()
+    }
+    return builder.toString()
+}
+
+fun exprToSource(expr: Expr): String {
+    return when (expr) {
+        is Expr.Var -> expr.name
+        is Expr.Call -> exprToSource(expr.callee) + "(" +  expr.arguments.joinToString { exprToSource(it) } + ")"
+        is Expr.Is -> exprToSource(expr.test) + " is " + (expr.type as Type.Base).name
+        is Expr.Not -> "not (" + exprToSource(expr.expr) + ")"
+        else -> TODO()
+    }
 }
