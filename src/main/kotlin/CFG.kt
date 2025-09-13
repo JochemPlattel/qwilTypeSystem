@@ -124,7 +124,7 @@ fun isExprToCFGFragment(isExpr: Expr.Is): CFGFragment {
     val trueCfg = cfgNodeToFragment(trueAssume, true)
     val falseCfg = cfgNodeToFragment(falseAssume, false)
 
-    return mergeCFGFragments(testCFG, trueCfg, falseCfg)
+    return cfgMergeTrueAndFalse(testCFG, trueCfg, falseCfg)
 }
 
 class CFGBuilder {
@@ -219,8 +219,8 @@ fun prettyPrintType(type: Type): String {
             "($left) | ($right)"
         }
         is Type.Negation -> {
-            val type = prettyPrintType(type.type)
-            "!($type)"
+            val negType = prettyPrintType(type.type)
+            "!($negType)"
         }
     }
 }

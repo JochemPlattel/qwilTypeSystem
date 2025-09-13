@@ -51,7 +51,6 @@ fun getPredecessors(cfg: CFGFragment, node: CFGNode): Set<CFGNode> {
 //sortedNodes: List<CFGNode>
 fun getInFlowContext(cfg: CFGFragment, node: CFGNode): FlowContext {
     val pred = getPredecessors(cfg, node)
-    println("node: ${prettyPrintCFGNode(node)}, $pred")
     val predInFlowContexts = pred.map { getOutFlowContext(cfg, it) }
     var inContext = emptyFlowContext()
     for (predInFlowContext in predInFlowContexts) {
@@ -62,21 +61,26 @@ fun getInFlowContext(cfg: CFGFragment, node: CFGNode): FlowContext {
 
 //joining with empty context not working
 fun joinFlowContexts(context1: FlowContext, context2: FlowContext): FlowContext {
-    val newMap = mutableMapOf<String, Type>()
+    val newMap = context1.map.toMutableMap()
     //require(context1.map.keys == context2.map.keys)
+    /*
     val overlappingNames = context1.map.keys.intersect(context2.map.keys)
     for (name in overlappingNames) {
         val type1 = context1.map[name]!!
         val type2 = context2.map[name]!!
         newMap[name] = Type.Union(type1, type2)
     }
-    /*
-    for ((name, type2) in context2.map) {
-        val type1 = context1.map[name]!!
-        newMap[name] = Type.Union(type1, type2)
-    }
 
      */
+    for ((name, type2) in context2.map) {
+        if (name in context1.map) {
+            val type1 = context1.map[name]!!
+            newMap[name] = Type.Union(type1, type2)
+        }
+        else {
+            newMap[name] = type2
+        }
+    }
     return FlowContext(newMap)
 }
 
@@ -114,7 +118,7 @@ fun flowContextWithAssumption(context: FlowContext, assumption: Expr): FlowConte
         val newMap = context.map + (name to newType)
         return FlowContext(newMap)
     }
-    TODO()
+    return context
 }
 
 fun emptyFlowContext(): FlowContext = FlowContext(emptyMap())

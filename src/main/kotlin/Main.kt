@@ -27,11 +27,11 @@ fun main() {
     val procfg = stmtToCFG(pro)
     for (node in topoSort(procfg)) {
         val context = getOutFlowContext(procfg, node)
-        //println(prettyPrintCFGNode(node))
-        //println(prettyPrintFlowContext(context))
+        println(prettyPrintCFGNode(node))
+        println(prettyPrintFlowContext(context))
     }
     //println(prettyPrintCFG(procfg))
-    test1()
+    //test1()
 }
 
 fun test1() {
