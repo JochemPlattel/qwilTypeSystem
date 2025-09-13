@@ -45,6 +45,83 @@ fun topoSort(cfg: CFGFragment): List<CFGNode> {
     return l
 }
 
-class FlowContext() {
-    val map = mutableMapOf<String, Type>()
+fun getPredecessors(cfg: CFGFragment, node: CFGNode): Set<CFGNode> {
+    return cfg.edges.filter { it.target == node }.map { it.source }.toSet()
+}
+//sortedNodes: List<CFGNode>
+fun getInFlowContext(cfg: CFGFragment, node: CFGNode): FlowContext {
+    val pred = getPredecessors(cfg, node)
+    println("node: ${prettyPrintCFGNode(node)}, $pred")
+    val predInFlowContexts = pred.map { getOutFlowContext(cfg, it) }
+    var inContext = emptyFlowContext()
+    for (predInFlowContext in predInFlowContexts) {
+        inContext = joinFlowContexts(inContext, predInFlowContext)
+    }
+    return inContext
+}
+
+//joining with empty context not working
+fun joinFlowContexts(context1: FlowContext, context2: FlowContext): FlowContext {
+    val newMap = mutableMapOf<String, Type>()
+    //require(context1.map.keys == context2.map.keys)
+    val overlappingNames = context1.map.keys.intersect(context2.map.keys)
+    for (name in overlappingNames) {
+        val type1 = context1.map[name]!!
+        val type2 = context2.map[name]!!
+        newMap[name] = Type.Union(type1, type2)
+    }
+    /*
+    for ((name, type2) in context2.map) {
+        val type1 = context1.map[name]!!
+        newMap[name] = Type.Union(type1, type2)
+    }
+
+     */
+    return FlowContext(newMap)
+}
+
+fun getOutFlowContext(cfg: CFGFragment, node: CFGNode): FlowContext {
+    val inContext = getInFlowContext(cfg, node)
+
+    return when (node) {
+        is CFGNode.Assume -> flowContextWithAssumption(inContext, node.assumption)
+        is CFGNode.Var -> inContext
+        else -> TODO()
+    }
+}
+
+fun flowContextWithAssumption(context: FlowContext, assumption: Expr): FlowContext {
+    if (assumption is Expr.Is && assumption.test is Expr.Var) {
+        val name = assumption.test.name
+        val currentType = context.map[name]
+        val newType = if (currentType == null) {
+            assumption.type
+        } else {
+            Type.Union(currentType, assumption.type)
+        }
+        val newMap = context.map + (name to newType)
+        return FlowContext(newMap)
+    }
+    if (assumption is Expr.Not && assumption.expr is Expr.Is && assumption.expr.test is Expr.Var) {
+        val name = assumption.expr.test.name
+        val currentType = context.map[name]
+        val negType = Type.Negation(assumption.expr.type)
+        val newType = if (currentType == null) {
+            negType
+        } else {
+            Type.Union(currentType, negType)
+        }
+        val newMap = context.map + (name to newType)
+        return FlowContext(newMap)
+    }
+    TODO()
+}
+
+fun emptyFlowContext(): FlowContext = FlowContext(emptyMap())
+
+class FlowContext(val map: Map<String, Type>)
+
+fun prettyPrintFlowContext(context: FlowContext): String {
+    val inner = context.map.map { (name, type) -> "$name -> ${prettyPrintType(type)}" }.joinToString()
+    return "[$inner]"
 }
