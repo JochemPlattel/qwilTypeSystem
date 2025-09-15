@@ -11,6 +11,24 @@ fun main() {
 
      */
     //println(sortedNodes.map { prettyPrintCFGNode(it) })
+
+    //println(prettyPrintCFG(procfg))
+    //test1()
+    test3()
+}
+
+fun test3() {
+    val assertion = Stmt.Assert(isexpr(vari("x"), type("T")))
+    val cfg = stmtToCFG(assertion)
+    println(prettyPrintCFG(cfg))
+    for (node in topoSort(cfg)) {
+        val context = getOutFlowContext(cfg, node)
+        println(prettyPrintCFGNode(node))
+        println(prettyPrintFlowContext(context))
+    }
+}
+
+fun test2() {
     val and = and(
         isexpr(vari("x"), type("T")),
         isexpr(vari("y"), type("U"))
@@ -30,8 +48,6 @@ fun main() {
         println(prettyPrintCFGNode(node))
         println(prettyPrintFlowContext(context))
     }
-    //println(prettyPrintCFG(procfg))
-    //test1()
 }
 
 fun test1() {

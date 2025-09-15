@@ -90,6 +90,18 @@ fun getOutFlowContext(cfg: CFGFragment, node: CFGNode): FlowContext {
     return when (node) {
         is CFGNode.Assume -> flowContextWithAssumption(inContext, node.assumption)
         is CFGNode.Var -> inContext
+        is CFGNode.Assign -> {
+            val type = inferType(node.value, inContext)
+            val map = inContext.map + (node.name to type)
+            FlowContext(map)
+        }
+        else -> TODO()
+    }
+}
+
+fun inferType(expr: Expr, flowContext: FlowContext): Type {
+    return when (expr) {
+        is Expr.Var -> flowContext.map[expr.name]!!
         else -> TODO()
     }
 }

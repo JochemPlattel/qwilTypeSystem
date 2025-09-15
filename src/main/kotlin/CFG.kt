@@ -12,6 +12,7 @@ sealed interface Stmt {
     class If(val condition: Expr, val trueBranch: Stmt, val falseBranch: Stmt): Stmt
     class Block(val stmts: List<Stmt>): Stmt
     class ExprStmt(val expr: Expr): Stmt
+    class Assert(val condition: Expr): Stmt
 }
 
 sealed interface Type {
@@ -22,7 +23,7 @@ sealed interface Type {
 
 
 sealed interface CFGNode {
-    class Assign(val name: String): CFGNode
+    class Assign(val name: String, val value: Expr): CFGNode
     class Assume(val assumption: Expr): CFGNode
     class Var(val vari: Expr.Var): CFGNode
 }
@@ -40,6 +41,7 @@ fun stmtToCFG(stmt: Stmt): CFGFragment {
         is Stmt.Block -> blockToCFG(stmt)
         is Stmt.ExprStmt -> exprToCFGFragment(stmt.expr)
         is Stmt.If -> ifToCFG(stmt)
+        is Stmt.Assert -> assertToCFG(stmt)
         else -> TODO()
     }
 }
@@ -50,6 +52,11 @@ fun exprStmtToCFG(exprStmt: Stmt.ExprStmt): CFGFragment {
 }
 
  */
+
+fun assertToCFG(assert: Stmt.Assert): CFGFragment {
+    val conditionCfg = exprToCFGFragment(assert.condition)
+    return CFGFragment(conditionCfg.root, conditionCfg.edges, emptySet(), conditionCfg.trueNodes)
+}
 
 fun ifToCFG(ifStmt: Stmt.If): CFGFragment {
     val conditionCfg = exprToCFGFragment(ifStmt.condition)
