@@ -135,7 +135,16 @@ fun flowContextWithAssumption(context: FlowContext, assumption: Expr): FlowConte
 
 fun emptyFlowContext(): FlowContext = FlowContext(emptyMap())
 
-class FlowContext(val map: Map<String, Type>)
+class FlowContext(val map: Map<String, Pair<Boolean, Type>>) {
+    fun getTypeOf(name: String): Type? {
+        val (_, type) = map[name] ?: return null
+        return type
+    }
+}
+
+fun flowContextJoin(context1: FlowContext, context2: FlowContext): FlowContext {
+
+}
 
 fun prettyPrintFlowContext(context: FlowContext): String {
     val inner = context.map.map { (name, type) -> "$name -> ${prettyPrintType(type)}" }.joinToString()
