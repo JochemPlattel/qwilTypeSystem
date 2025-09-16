@@ -1,26 +1,20 @@
 package org.example
 
 fun main() {
-    /*
-    val condition = Expr.Is(Expr.Var("x"), Type.Base("T"))
-    val trueBranch = Stmt.ExprStmt(Expr.Var("y"))
-    val falseBranch = Stmt.ExprStmt(Expr.Var("z"))
-    val program = Stmt.If(condition, trueBranch, falseBranch)
-    val cfg = stmtToCFG(program)    //println(prettyPrintCFG(cfg))
-    val sortedNodes = topoSort(cfg)
-
-     */
-    //println(sortedNodes.map { prettyPrintCFGNode(it) })
-
-    //println(prettyPrintCFG(procfg))
-    //test1()
-    test3()
+    println("--- x is T test ---")
+    TEST_xIsT()
+    println("--- if test ---")
+    TEST_if()
+    println("--- and test ---")
+    TEST_and()
 }
-
-fun test3() {
+/*
+x is T
+ */
+fun TEST_xIsT() {
     val assertion = Stmt.Assert(isexpr(vari("x"), type("T")))
     val cfg = stmtToCFG(assertion)
-    println(prettyPrintCFG(cfg))
+    //println(prettyPrintCFG(cfg))
     for (node in topoSort(cfg)) {
         val context = getOutFlowContext(cfg, node)
         println(prettyPrintCFGNode(node))
@@ -28,12 +22,19 @@ fun test3() {
     }
 }
 
-fun test2() {
+/*
+if x is T and y is U {
+    a
+} else {
+    b
+}
+ */
+fun TEST_and() {
     val and = and(
         isexpr(vari("x"), type("T")),
         isexpr(vari("y"), type("U"))
     )
-    val pro = ifstmt(
+    val program = ifstmt(
         and,
         exprstmt(
             vari("a")
@@ -42,15 +43,22 @@ fun test2() {
             vari("b")
         )
     )
-    val procfg = stmtToCFG(pro)
-    for (node in topoSort(procfg)) {
-        val context = getOutFlowContext(procfg, node)
+    val cfg = stmtToCFG(program)
+    for (node in topoSort(cfg)) {
+        val context = getOutFlowContext(cfg, node)
         println(prettyPrintCFGNode(node))
         println(prettyPrintFlowContext(context))
     }
 }
 
-fun test1() {
+/*
+if x is t {
+    a
+} else {
+    b
+}
+ */
+fun TEST_if() {
     val stmt = ifstmt(
         isexpr(vari("x"), type("T")),
         exprstmt(vari("a")),
@@ -64,7 +72,7 @@ fun test1() {
         println(prettyPrintFlowContext(context))
     }
 
-    println(prettyPrintCFG(cfg))
+    //println(prettyPrintCFG(cfg))
 }
 
 fun exprstmt(expr: Expr) = Stmt.ExprStmt(expr)

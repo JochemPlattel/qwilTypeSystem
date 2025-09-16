@@ -1,27 +1,5 @@
 package org.example
 
-sealed interface Expr {
-    class Call(val callee: Expr, val arguments: List<Expr>): Expr
-    class Is(val test: Expr, val type: Type): Expr
-    class Var(val name: String): Expr
-    class And(val left: Expr, val right: Expr): Expr
-    class Not(val expr: Expr): Expr
-}
-
-sealed interface Stmt {
-    class If(val condition: Expr, val trueBranch: Stmt, val falseBranch: Stmt): Stmt
-    class Block(val stmts: List<Stmt>): Stmt
-    class ExprStmt(val expr: Expr): Stmt
-    class Assert(val condition: Expr): Stmt
-}
-
-sealed interface Type {
-    class Base(val name: String): Type
-    data class Union(val left: Type, val right: Type): Type
-    data class Negation(val type: Type): Type
-}
-
-
 sealed interface CFGNode {
     class Assign(val name: String, val value: Expr): CFGNode
     class Assume(val assumption: Expr): CFGNode
@@ -29,6 +7,7 @@ sealed interface CFGNode {
 }
 
 data class CFGEdge(val source: CFGNode, val target: CFGNode)
+
 data class CFGFragment(
     val root: CFGNode,
     val edges: Set<CFGEdge>,
@@ -46,13 +25,6 @@ fun stmtToCFG(stmt: Stmt): CFGFragment {
     }
 }
 
-/*
-fun exprStmtToCFG(exprStmt: Stmt.ExprStmt): CFGFragment {
-    return exprToCFGFragment(exprStmt.expr)
-}
-
- */
-
 fun assertToCFG(assert: Stmt.Assert): CFGFragment {
     val conditionCfg = exprToCFGFragment(assert.condition)
     return CFGFragment(conditionCfg.root, conditionCfg.edges, emptySet(), conditionCfg.trueNodes)
@@ -62,9 +34,6 @@ fun ifToCFG(ifStmt: Stmt.If): CFGFragment {
     val conditionCfg = exprToCFGFragment(ifStmt.condition)
     val trueCfg = stmtToCFG(ifStmt.trueBranch)
     val falseCfg = stmtToCFG(ifStmt.falseBranch)
-    //println(prettyPrintCFG(conditionCfg))
-    //println(prettyPrintCFG(trueCfg))
-    //println(prettyPrintCFG(falseCfg))
     return cfgMergeTrueAndFalse(conditionCfg, trueCfg, falseCfg)
 }
 
@@ -97,10 +66,6 @@ fun varToCFG(vari: Expr.Var): CFGFragment {
 fun andToCFG(and: Expr.And): CFGFragment {
     val leftCfg = exprToCFGFragment(and.left)
     val rightCfg = exprToCFGFragment(and.right)
-    //println("left:")
-    //println(prettyPrintCFG(leftCfg))
-    //println("right:")
-    //println(prettyPrintCFG(rightCfg))
     return trueMergeCFGFragment(leftCfg, rightCfg)
 }
 
@@ -120,13 +85,9 @@ fun callToCFGFragment(call: Expr.Call): CFGFragment {
 }
 
 fun isExprToCFGFragment(isExpr: Expr.Is): CFGFragment {
-    val builder = CFGBuilder()
-
     val testCFG = exprToCFGFragment(isExpr.test)
     val trueAssume = CFGNode.Assume(isExpr)
     val falseAssume = CFGNode.Assume(Expr.Not(isExpr))
-    builder.addExitNode(trueAssume, true)
-    builder.addExitNode(falseAssume, false)
 
     val trueCfg = cfgNodeToFragment(trueAssume, true)
     val falseCfg = cfgNodeToFragment(falseAssume, false)
@@ -158,25 +119,12 @@ class CFGBuilder {
 
 fun falseMergeCFGFragment(fragment1: CFGFragment, fragment2: CFGFragment): CFGFragment {
     val newEdges = fragment1.edges + fragment2.edges + fragment1.falseNodes.map { CFGEdge(it, fragment2.root) }
-    //println(fragment1.falseNodes.map { CFGEdge(it, fragment2.root) })
     return CFGFragment(fragment1.root, newEdges, fragment2.falseNodes, fragment1.trueNodes + fragment2.trueNodes)
 }
 
 fun trueMergeCFGFragment(fragment1: CFGFragment, fragment2: CFGFragment): CFGFragment {
     val newEdges = fragment1.edges + fragment2.edges + fragment1.trueNodes.map { CFGEdge(it, fragment2.root) }
     return CFGFragment(fragment1.root, newEdges, fragment1.falseNodes + fragment2.falseNodes, fragment2.trueNodes)
-}
-
-//this isnt entirely correct i think. merging both branches has to happen at once, not seperately. since an extra false or true node couldve been added in between
-@Deprecated("probably wrong method", replaceWith = ReplaceWith("cfgMergeTrueAndFalse"))
-fun mergeCFGFragments(
-    fragment: CFGFragment,
-    trueFragment: CFGFragment,
-    falseFragment: CFGFragment
-): CFGFragment {
-    val withTrue = trueMergeCFGFragment(fragment, trueFragment)
-    val withFalse = falseMergeCFGFragment(withTrue, falseFragment)
-    return withFalse
 }
 
 fun cfgMergeTrueAndFalse(
@@ -215,58 +163,4 @@ fun cfgNodeToFragment(node: CFGNode, mark: Boolean? = null): CFGFragment {
 fun cfgMerge(fragment1: CFGFragment, fragment2: CFGFragment): CFGFragment {
     val result = cfgMergeTrueAndFalse(fragment1, fragment2, fragment2)
     return result
-}
-
-fun prettyPrintType(type: Type): String {
-    return when (type) {
-        is Type.Base -> type.name
-        is Type.Union -> {
-            val left = prettyPrintType(type.left)
-            val right = prettyPrintType(type.right)
-            "($left) | ($right)"
-        }
-        is Type.Negation -> {
-            val negType = prettyPrintType(type.type)
-            "!($negType)"
-        }
-    }
-}
-
-fun prettyPrintCFGNode(node: CFGNode): String {
-    return when (node) {
-        is CFGNode.Var -> "var(${node.vari.name})"
-        is CFGNode.Assume -> "assume(${exprToSource(node.assumption)})"
-        is CFGNode.Assign -> "assign(${node.name})"
-    }
-}
-
-fun prettyPrintCFG(cfg: CFGFragment): String {
-    val builder = StringBuilder()
-    for (edge in cfg.edges) {
-        builder.append(prettyPrintCFGNode(edge.source))
-        builder.append(" -> ")
-        builder.append(prettyPrintCFGNode(edge.target))
-        builder.appendLine()
-    }
-    for (falseNode in cfg.falseNodes) {
-        builder.append(prettyPrintCFGNode(falseNode))
-        builder.append(" -> false")
-        builder.appendLine()
-    }
-    for (trueNode in cfg.trueNodes) {
-        builder.append(prettyPrintCFGNode(trueNode))
-        builder.append(" -> true")
-        builder.appendLine()
-    }
-    return builder.toString()
-}
-
-fun exprToSource(expr: Expr): String {
-    return when (expr) {
-        is Expr.Var -> expr.name
-        is Expr.Call -> exprToSource(expr.callee) + "(" +  expr.arguments.joinToString { exprToSource(it) } + ")"
-        is Expr.Is -> exprToSource(expr.test) + " is " + prettyPrintType(expr.type)
-        is Expr.Not -> "not (" + exprToSource(expr.expr) + ")"
-        else -> TODO()
-    }
 }
