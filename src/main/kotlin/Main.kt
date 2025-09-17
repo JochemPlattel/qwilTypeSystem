@@ -1,11 +1,11 @@
 package org.example
 
 fun main() {
-    println("--- x is T test ---")
+    println("--- x is T test ---\n")
     TEST_xIsT()
-    println("--- if test ---")
+    println("--- if test ---\n")
     TEST_if()
-    println("--- and test ---")
+    println("--- and test ---\n")
     TEST_and()
 }
 /*
@@ -14,12 +14,16 @@ x is T
 fun TEST_xIsT() {
     val assertion = Stmt.Assert(isexpr(vari("x"), type("T")))
     val cfg = stmtToCFG(assertion)
-    //println(prettyPrintCFG(cfg))
+    showAnalysis(cfg)
+    /*
+    println(prettyPrintCFG(cfg))
     for (node in topoSort(cfg)) {
         val context = getOutFlowContext(cfg, node)
         println(prettyPrintCFGNode(node))
         println(prettyPrintFlowContext(context))
     }
+
+     */
 }
 
 /*
@@ -44,11 +48,17 @@ fun TEST_and() {
         )
     )
     val cfg = stmtToCFG(program)
+    showAnalysis(cfg)
+    /*
+    println(prettyPrintCFG(cfg))
+
     for (node in topoSort(cfg)) {
         val context = getOutFlowContext(cfg, node)
         println(prettyPrintCFGNode(node))
         println(prettyPrintFlowContext(context))
     }
+
+     */
 }
 
 /*
@@ -65,6 +75,9 @@ fun TEST_if() {
         exprstmt(vari("b"))
     )
     val cfg = stmtToCFG(stmt)
+    showAnalysis(cfg)
+    /*
+    println(prettyPrintCFG(cfg))
 
     for (node in topoSort(cfg)) {
         val context = getOutFlowContext(cfg, node)
@@ -72,7 +85,26 @@ fun TEST_if() {
         println(prettyPrintFlowContext(context))
     }
 
-    //println(prettyPrintCFG(cfg))
+     */
+}
+
+fun showAnalysis(cfg: CFGFragment) {
+    val nodes = topoSort(cfg)
+    println("---nodes---")
+    for (node in nodes) {
+        println(prettyPrintCFGNode(node))
+    }
+    println()
+    println("---cfg---")
+    println(prettyPrintCFG(cfg))
+
+    println("---analysis---")
+    for (node in nodes) {
+        val context = getOutFlowContext(cfg, node)
+        println(prettyPrintCFGNode(node))
+        println(prettyPrintFlowContext(context))
+        println()
+    }
 }
 
 fun exprstmt(expr: Expr) = Stmt.ExprStmt(expr)
